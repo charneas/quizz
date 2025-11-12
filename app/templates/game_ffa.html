@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz - Mode FFA</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+        }
+        .game-setup {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .theme-selection {
+            margin-bottom: 20px;
+        }
+        .player-list {
+            list-style: none;
+            padding: 0;
+        }
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8f9fa;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .game-controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #1557b0;
+        }
+        .question-panel {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .answer-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mode Free-For-All</h1>
+    
+    <div class="game-setup">
+        <div class="theme-selection">
+            <h2>Sélection du thème</h2>
+            <select id="theme">
+                <option value="general">Culture Générale</option>
+                <option value="history">Histoire</option>
+                <option value="science">Sciences</option>
+                <option value="sport">Sport</option>
+                <option value="cinema">Cinéma</option>
+            </select>
+        </div>
+
+        <h2>Joueurs</h2>
+        <input type="text" id="playerName" placeholder="Nom du joueur">
+        <button onclick="addPlayer()">Ajouter un joueur</button>
+        <ul class="player-list" id="playersList">
+            <!-- Liste des joueurs -->
+        </ul>
+
+        <div class="game-controls">
+            <button onclick="startGame()">Commencer la partie</button>
+        </div>
+    </div>
+
+    <div id="questionPanel" class="question-panel">
+        <h2>Question pour <span id="currentPlayer"></span></h2>
+        <p id="questionText"></p>
+        <input type="text" class="answer-input" id="answer" placeholder="Votre réponse">
+        <button onclick="submitAnswer()">Valider</button>
+    </div>
+
+    <script>
+        let players = [];
+        let currentPlayerIndex = -1;
+        let currentRound = 1;
+        const socket = new WebSocket(`ws://${window.location.hostname}:8001/ws/ffa`);
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            handleServerMessage(data);
+        };
+
+        function addPlayer() {
+            const playerName = document.getElementById('playerName').value;
+            if (playerName) {
+                players.push({name: playerName, score: 0});
+                updatePlayersList();
+                document.getElementById('playerName').value = '';
+            }
+        }
+
+        function updatePlayersList() {
+            const list = document.getElementById('playersList');
+            list.innerHTML = players.map(player => 
+                `<li class="player-item">${player.name} - Score: ${player.score}</li>`
+            ).join('');
+        }
+
+        function startGame() {
+            if (players.length < 2) {
+                alert('Il faut au moins 2 joueurs !');
+                return;
+            }
+            const theme = document.getElementById('theme').value;
+            socket.send(JSON.stringify({
+                type: 'start_game',
+                theme: theme,
+                players: players
+            }));
+        }
+
+        function handleServerMessage(data) {
+            if (data.type === 'new_question') {
+                displayQuestion(data.question, data.player);
+            } else if (data.type === 'answer_result') {
+                handleAnswerResult(data);
+            }
+        }
+
+        function displayQuestion(question, playerName) {
+            document.getElementById('questionPanel').style.display = 'block';
+            document.getElementById('currentPlayer').textContent = playerName;
+            document.getElementById('questionText').textContent = question;
+            document.getElementById('answer').value = '';
+        }
+
+        function submitAnswer() {
+            const answer = document.getElementById('answer').value;
+            socket.send(JSON.stringify({
+                type: 'submit_answer',
+                answer: answer
+            }));
+        }
+
+        function handleAnswerResult(data) {
+            alert(data.correct ? 'Bonne réponse !' : 'Mauvaise réponse !');
+            updatePlayersList();
+        }
+    </script>
+</body>
+</html>

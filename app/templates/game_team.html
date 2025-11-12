@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz - Mode Équipes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+        }
+        .team-setup {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .players-list {
+            list-style: none;
+            padding: 0;
+        }
+        .player-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f8f9fa;
+            margin: 5px 0;
+            border-radius: 5px;
+        }
+        .team-controls {
+            text-align: center;
+            margin-top: 20px;
+        }
+        button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #1557b0;
+        }
+        .bonus-panel {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Mode Équipes</h1>
+    
+    <div class="team-setup">
+        <h2>Configuration des équipes</h2>
+        <input type="text" id="playerName" placeholder="Nom du joueur">
+        <button onclick="addPlayer()">Ajouter un joueur</button>
+        <ul class="players-list" id="playersList">
+            <!-- Liste des joueurs -->
+        </ul>
+        <div class="team-controls">
+            <button onclick="createTeams()">Former les équipes</button>
+        </div>
+    </div>
+
+    <div id="teams" style="display: none;">
+        <div class="team-setup">
+            <h2>Équipes</h2>
+            <div id="teamsList">
+                <!-- Liste des équipes -->
+            </div>
+        </div>
+
+        <div class="bonus-panel">
+            <h2>Bonus / Malus</h2>
+            <select id="bonusType">
+                <option value="time">+30 secondes</option>
+                <option value="points">+10 points</option>
+                <option value="skip">Passer une question</option>
+            </select>
+            <button onclick="applyBonus()">Appliquer</button>
+        </div>
+    </div>
+
+    <script>
+        let players = [];
+        let teams = [];
+        const socket = new WebSocket(`ws://${window.location.hostname}:8001/ws/team`);
+
+        socket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            handleServerMessage(data);
+        };
+
+        function addPlayer() {
+            const playerName = document.getElementById('playerName').value;
+            if (playerName) {
+                players.push(playerName);
+                updatePlayersList();
+                document.getElementById('playerName').value = '';
+            }
+        }
+
+        function updatePlayersList() {
+            const list = document.getElementById('playersList');
+            list.innerHTML = players.map(player => 
+                `<li class="player-item">${player}</li>`
+            ).join('');
+        }
+
+        function createTeams() {
+            if (players.length < 6) {
+                alert('Il faut au moins 6 joueurs pour former des équipes !');
+                return;
+            }
+            socket.send(JSON.stringify({
+                type: 'create_teams',
+                players: players
+            }));
+        }
+
+        function handleServerMessage(data) {
+            if (data.type === 'teams_created') {
+                teams = data.teams;
+                displayTeams();
+                document.getElementById('teams').style.display = 'block';
+            }
+        }
+
+        function displayTeams() {
+            const teamsDiv = document.getElementById('teamsList');
+            teamsDiv.innerHTML = teams.map((team, index) => `
+                <div class="team-setup">
+                    <h3>Équipe ${index + 1}</h3>
+                    <ul class="players-list">
+                        ${team.map(player => `<li class="player-item">${player}</li>`).join('')}
+                    </ul>
+                </div>
+            `).join('');
+        }
+
+        function applyBonus() {
+            const bonusType = document.getElementById('bonusType').value;
+            // Implémenter la logique des bonus
+        }
+    </script>
+</body>
+</html>

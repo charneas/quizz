@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <title>Panel Admin</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .admin-card {
+            margin-bottom: 1rem;
+        }
+        .question-card {
+            margin-bottom: 1rem;
+        }
+        .difficulty-1 { border-left: 4px solid #28a745; }
+        .difficulty-2 { border-left: 4px solid #ffc107; }
+        .difficulty-3 { border-left: 4px solid #dc3545; }
+        .superadmin-badge {
+            background-color: #6c757d;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+        #alert {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-4">
+        <h1 class="mb-4">Panel Admin</h1>
+        
+        <div id="alert" role="alert"></div>
+
+        <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="questions-tab" data-bs-toggle="tab" href="#questions" role="tab">
+                    Questions en attente
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="admins-tab" data-bs-toggle="tab" href="#admins" role="tab" style="display: none;">
+                    Gestion des administrateurs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="games-tab" data-bs-toggle="tab" href="#games" role="tab">
+                    Gestion des parties
+                </a>
+            </li>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="questions" role="tabpanel">
+                <div id="pendingQuestions">
+                    <!-- Questions en attente -->
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="games" role="tabpanel">
+                <div class="mb-4">
+                    <h5>Créer une nouvelle partie</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <form id="createGameForm" class="mb-4">
+                                <div class="mb-3">
+                                    <label for="gameMode" class="form-label">Mode de jeu</label>
+                                    <select class="form-select" id="gameMode" required>
+                                        <option value="ffa">Free-for-all</option>
+                                        <option value="team">Équipes</option>
+                                        <option value="grid">Grille</option>
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Créer la partie</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h5>Parties en cours</h5>
+                    <div id="activeGames" class="mt-3">
+                        <!-- Liste des parties en cours -->
+                    </div>
+                </div>
+
+                <!-- Modal pour gérer une partie -->
+                <div class="modal fade" id="gameControlModal" tabindex="-1">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Gestion de la partie: <span id="currentGameName"></span></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">Code de la partie</h6>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="gameCode" readonly>
+                                                    <button class="btn btn-outline-secondary" type="button" onclick="copyGameCode()">
+                                                        Copier
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">État de la partie</h6>
+                                                <div class="btn-group w-100">
+                                                    <button class="btn btn-success" onclick="startGame(currentGameId)">
+                                                        Démarrer
+                                                    </button>
+                                                    <button class="btn btn-warning" onclick="pauseGame(currentGameId)">
+                                                        Pause
+                                                    </button>
+                                                    <button class="btn btn-danger" onclick="stopGame(currentGameId)">
+                                                        Arrêter
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">Joueurs connectés</h6>
+                                                <ul class="list-group" id="playersList">
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">Contrôles des questions</h6>
+                                                <div class="d-grid gap-2">
+                                                    <button class="btn btn-primary" onclick="nextQuestion(currentGameId)">
+                                                        Question suivante
+                                                    </button>
+                                                    <button class="btn btn-info" onclick="showAnswer(currentGameId)">
+                                                        Montrer la réponse
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="tab-pane fade" id="admins" role="tabpanel">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>Ajouter un administrateur</h5>
+                        <form id="addAdminForm" class="mb-4">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Nom d'utilisateur</label>
+                                <input type="text" class="form-control" id="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Mot de passe</label>
+                                <input type="password" class="form-control" id="password" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Ajouter</button>
+                        </form>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div id="adminList">
+                            <!-- Liste des administrateurs -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:8001";
+        // Vérifie si l'utilisateur est superadmin
+        function checkSuperAdmin() {
+            fetch(API_BASE_URL + '/admins')
+                .then(response => {
+                    if (response.ok) {
+                        document.getElementById('admins-tab').style.display = 'block';
+                        loadAdmins();
+                    } else {
+                        document.getElementById('admins-tab').style.display = 'none';
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('admins-tab').style.display = 'none';
+                });
+        }
+
+        // Charge la liste des administrateurs
+        function loadAdmins() {
+            fetch(API_BASE_URL + '/admins')
+                .then(response => response.json())
+                .then(admins => {
+                    const container = document.getElementById('adminList');
+                    container.innerHTML = '<h5 class="mt-4">Liste des administrateurs</h5>';
+                    
+                    admins.forEach(admin => {
+                        const card = document.createElement('div');
+                        card.className = 'card admin-card';
+                        card.innerHTML = `
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">${admin.username}</h6>
+                                        <small class="text-muted">${admin.email}</small>
+                                        ${admin.is_superadmin ? '<span class="ms-2 superadmin-badge">Superadmin</span>' : ''}
+                                    </div>
+                                    ${admin.is_superadmin ? '' : 
+                                        `<button onclick="deleteAdmin(${admin.id})" class="btn btn-danger btn-sm">
+                                            Supprimer
+                                        </button>`
+                                    }
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    showAlert('danger', 'Erreur lors du chargement des administrateurs.');
+                });
+        }
+
+        // Ajoute un nouvel administrateur
+        document.getElementById('addAdminForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const data = {
+                username: document.getElementById('username').value,
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value
+            };
+            
+            fetch(API_BASE_URL + '/admins', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                showAlert('success', 'Administrateur ajouté avec succès.');
+                this.reset();
+                loadAdmins();
+            })
+            .catch(error => {
+                showAlert('danger', 'Erreur lors de l\'ajout de l\'administrateur.');
+            });
+        });
+
+        // Supprime un administrateur
+        function deleteAdmin(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cet administrateur ?')) {
+                return;
+            }
+            
+            fetch(`${API_BASE_URL}/admins/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                showAlert('success', 'Administrateur supprimé avec succès.');
+                loadAdmins();
+            })
+            .catch(error => {
+                showAlert('danger', 'Erreur lors de la suppression de l\'administrateur.');
+            });
+        }
+
+        // Charge les questions en attente
+        function loadPendingQuestions() {
+            fetch(API_BASE_URL + '/questions/pending')
+                .then(response => response.json())
+                .then(questions => {
+                    const container = document.getElementById('pendingQuestions');
+                    container.innerHTML = '';
+                    
+                    if (questions.length === 0) {
+                        container.innerHTML = '<div class="alert alert-info">Aucune question en attente de validation.</div>';
+                        return;
+                    }
+                    
+                    questions.forEach(question => {
+                        const difficultyText = ['', 'Facile', 'Moyen', 'Difficile'][question.difficulty];
+                        const card = document.createElement('div');
+                        card.className = `card question-card difficulty-${question.difficulty}`;
+                        card.innerHTML = `
+                            <div class="card-body">
+                                <h5 class="card-title">${question.text}</h5>
+                                <p class="card-text">
+                                    <strong>Réponse:</strong> ${question.answer}<br>
+                                    <strong>Thème:</strong> ${question.theme}<br>
+                                    <strong>Difficulté:</strong> ${difficultyText}<br>
+                                    <strong>Soumis par:</strong> ${question.submitter_name} (${question.submitter_email})
+                                </p>
+                                <div class="d-flex gap-2">
+                                    <button onclick="reviewQuestion(${question.id}, 'approve')" class="btn btn-success">Approuver</button>
+                                    <button onclick="rejectQuestion(${question.id})" class="btn btn-danger">Rejeter</button>
+                                </div>
+                            </div>
+                        `;
+                        container.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    showAlert('danger', 'Erreur lors du chargement des questions.');
+                });
+        }
+
+        // Gestion des questions
+        function reviewQuestion(id, action) {
+            if (action === 'reject') {
+                const comment = prompt('Raison du rejet:');
+                if (comment === null) return;
+                sendReview(id, action, comment);
+            } else {
+                sendReview(id, action);
+            }
+        }
+
+        function rejectQuestion(id) {
+            reviewQuestion(id, 'reject');
+        }
+
+        function sendReview(id, action, comment = '') {
+            fetch(`${API_BASE_URL}/questions/pending/${id}/review`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action, comment }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                showAlert('success', data.message);
+                loadPendingQuestions();
+            })
+            .catch(error => {
+                showAlert('danger', 'Erreur lors de la validation de la question.');
+            });
+        }
+
+        // Utilitaire pour afficher les alertes
+        function showAlert(type, message) {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(() => alert.style.display = 'none', 5000);
+        }
+
+        let currentGameId = null;
+        let gameControlModal = null;
+
+        // Gestion des parties
+        function createGame(e) {
+            e.preventDefault();
+            
+            const data = {
+                mode: document.getElementById('gameMode').value,
+                name: document.getElementById('gameName').value
+            };
+            
+            fetch('/games', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(game => {
+                console.log('Réponse création partie:', game);
+                if (!game || !game.code) {
+                    throw new Error('Code de partie manquant dans la réponse');
+                }
+                showAlert('success', 'Partie créée avec succès.');
+                e.target.reset();
+                loadActiveGames();
+                openGameControl(game.id, game.name, game.code);
+            })
+            .catch(error => {
+                console.error('Erreur création partie:', error);
+                showAlert('danger', 'Erreur lors de la création de la partie.');
+            });
+        }
+
+        function loadActiveGames() {
+            fetch(API_BASE_URL + '/games/active')
+                .then(response => response.json())
+                .then(games => {
+                    const container = document.getElementById('activeGames');
+                    container.innerHTML = '';
+                    
+                    if (games.length === 0) {
+                        container.innerHTML = '<div class="alert alert-info">Aucune partie en cours.</div>';
+                        return;
+                    }
+                    
+                    const table = document.createElement('table');
+                    table.className = 'table table-hover';
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>Nom</th>
+                                <th>Mode</th>
+                                <th>Code</th>
+                                <th>État</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                    `;
+                    
+                    const modeNames = {
+                        'ffa': 'Free-for-all',
+                        'team': 'Équipes',
+                        'grid': 'Grille'
+                    };
+
+                    const stateLabels = {
+                        'waiting': ['bg-secondary', 'En attente'],
+                        'running': ['bg-success', 'En cours'],
+                        'paused': ['bg-warning', 'En pause'],
+                        'finished': ['bg-danger', 'Terminée']
+                    };
+                    
+                    games.forEach(game => {
+                        const [stateClass, stateText] = stateLabels[game.state] || stateLabels['waiting'];
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${game.name}</td>
+                            <td>${modeNames[game.mode]}</td>
+                            <td><code>${game.code}</code></td>
+                            <td><span class="badge ${stateClass}">${stateText}</span></td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button onclick="openGameControl(${game.id}, '${game.name}', '${game.code}')" 
+                                            class="btn btn-primary">Gérer</button>
+                                    <button onclick="deleteGame(${game.id})" 
+                                            class="btn btn-danger">Supprimer</button>
+                                </div>
+                            </td>
+                        `;
+                        table.querySelector('tbody').appendChild(row);
+                    });
+                    
+                    container.appendChild(table);
+                })
+                .catch(error => {
+                    console.error('Erreur chargement parties:', error);
+                    showAlert('danger', 'Erreur lors du chargement des parties.');
+                });
+        }
+
+        function openGameControl(gameId, gameName, gameCode) {
+            currentGameId = gameId;
+            document.getElementById('currentGameName').textContent = gameName;
+            document.getElementById('gameCode').value = gameCode;
+            
+            // Initialize modal if not already done
+            if (!gameControlModal) {
+                gameControlModal = new bootstrap.Modal(document.getElementById('gameControlModal'));
+            }
+            
+            // Load players
+            loadPlayers(gameId);
+            
+            // Show modal
+            gameControlModal.show();
+        }
+
+        function copyGameCode() {
+            const codeInput = document.getElementById('gameCode');
+            codeInput.select();
+            document.execCommand('copy');
+            showAlert('success', 'Code copié dans le presse-papier');
+        }
+
+        function loadPlayers(gameId) {
+            fetch(`${API_BASE_URL}/games/${gameId}/players`)
+                .then(response => response.json())
+                .then(players => {
+                    const container = document.getElementById('playersList');
+                    container.innerHTML = '';
+                    
+                    if (players.length === 0) {
+                        container.innerHTML = '<li class="list-group-item">Aucun joueur connecté</li>';
+                        return;
+                    }
+                    
+                    players.forEach(player => {
+                        const item = document.createElement('li');
+                        item.className = 'list-group-item d-flex justify-content-between align-items-center';
+                        item.innerHTML = `
+                            ${player.name}
+                            <button onclick="kickPlayer(${gameId}, ${player.id})" 
+                                    class="btn btn-danger btn-sm">
+                                Exclure
+                            </button>
+                        `;
+                        container.appendChild(item);
+                    });
+                })
+                .catch(error => {
+                    console.error('Erreur chargement joueurs:', error);
+                    showAlert('danger', 'Erreur lors du chargement des joueurs');
+                });
+        }
+
+        function deleteGame(id) {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer cette partie ?')) {
+                return;
+            }
+            
+            fetch(`${API_BASE_URL}/games/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                showAlert('success', 'Partie supprimée avec succès.');
+                loadActiveGames();
+            })
+            .catch(error => {
+                console.error('Erreur suppression partie:', error);
+                showAlert('danger', 'Erreur lors de la suppression de la partie.');
+            });
+        }
+
+        // Contrôles de la partie
+        function startGame(gameId) {
+            sendGameCommand(gameId, 'start');
+        }
+
+        function pauseGame(gameId) {
+            sendGameCommand(gameId, 'pause');
+        }
+
+        function stopGame(gameId) {
+            if (confirm('Êtes-vous sûr de vouloir arrêter la partie ?')) {
+                sendGameCommand(gameId, 'stop');
+            }
+        }
+
+        function nextQuestion(gameId) {
+            sendGameCommand(gameId, 'next_question');
+        }
+
+        function showAnswer(gameId) {
+            sendGameCommand(gameId, 'show_answer');
+        }
+
+        function kickPlayer(gameId, playerId) {
+            if (confirm('Êtes-vous sûr de vouloir exclure ce joueur ?')) {
+                fetch(`${API_BASE_URL}/games/${gameId}/players/${playerId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    showAlert('success', 'Joueur exclu avec succès');
+                    loadPlayers(gameId);
+                })
+                .catch(error => {
+                    console.error('Erreur exclusion joueur:', error);
+                    showAlert('danger', 'Erreur lors de l\'exclusion du joueur');
+                });
+            }
+        }
+
+        function sendGameCommand(gameId, command) {
+            fetch(`${API_BASE_URL}/games/${gameId}/command`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ command })
+            })
+            .then(response => response.json())
+            .then(data => {
+                showAlert('success', data.message);
+                loadActiveGames();
+            })
+            .catch(error => {
+                console.error('Erreur commande partie:', error);
+                showAlert('danger', 'Erreur lors de l\'exécution de la commande');
+            });
+        }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            const createGameForm = document.getElementById('createGameForm');
+            if (createGameForm) {
+                createGameForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const gameMode = document.getElementById('gameMode');;
+                    
+                    console.log('Champs du formulaire:', {
+                        gameMode: gameMode ? gameMode.value : 'non trouvé',
+                    });
+                    
+                    if (!gameMode) {
+                        console.error('Certains champs du formulaire sont manquants');
+                        showAlert('danger', 'Erreur: formulaire incomplet');
+                        return;
+                    }
+                    
+                    const data = {
+                        mode: gameMode.value,
+                    };
+                    
+                    console.log('Envoi de données:', data);
+                    
+                    fetch(API_BASE_URL + '/games', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.text().then(text => {
+                                throw new Error(`Erreur HTTP ${response.status}: ${text}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(game => {
+                        console.log('Réponse création partie:', game);
+                        if (!game || !game.code) {
+                            throw new Error('Code de partie manquant dans la réponse');
+                        }
+                        showAlert('success', 'Partie créée avec succès.');
+                        this.reset();
+                        loadActiveGames();
+                        openGameControl(game.id, game.code);
+                    })
+                    .catch(error => {
+                        console.error('Erreur création partie:', error);
+                        showAlert('danger', `Erreur lors de la création de la partie: ${error.message}`);
+                    });
+                });
+            }
+            
+            loadPendingQuestions();
+            checkSuperAdmin();
+            loadActiveGames();
+        });
+    </script>
+</body>
+</html>

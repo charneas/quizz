@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Game</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f2f5;
+        }
+        .join-game {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 40px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .join-game input {
+            padding: 10px;
+            font-size: 18px;
+            width: 200px;
+            margin-right: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        h1 {
+            text-align: center;
+            color: #1a73e8;
+            margin-bottom: 40px;
+        }
+        .game-modes {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .mode-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+        .mode-card:hover {
+            transform: translateY(-5px);
+        }
+        .mode-card h2 {
+            color: #1a73e8;
+            margin-top: 0;
+        }
+        .mode-card p {
+            color: #5f6368;
+            margin-bottom: 20px;
+        }
+        .top-actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .action-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #34a853;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+            font-family: Arial, sans-serif;
+        }
+        .action-button:hover {
+            background-color: #2d8d47;
+            text-decoration: none;
+            color: white;
+        }
+        .action-button.admin {
+            background-color: #ea4335;
+        }
+        .action-button.admin:hover {
+            background-color: #d33426;
+        }
+        .join-button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        .join-button:hover {
+            background-color: #1557b0;
+        }
+        .top-actions {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .action-button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #34a853;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+        .action-button:hover {
+            background-color: #2d8d47;
+        }
+        .action-button.admin {
+            background-color: #ea4335;
+        }
+        .action-button.admin:hover {
+            background-color: #d33426;
+        }
+    </style>
+</head>
+<body>
+    <h1>Quiz Game</h1>
+    
+    <div class="top-actions">
+        <a href="/submit" class="action-button">Proposer une question</a>
+        <a href="/admin" class="action-button admin">Administration</a>
+    </div>
+
+    <div class="join-game">
+        <h2>Rejoindre une partie</h2>
+        <input type="text" id="gameCode" placeholder="Code de la partie" maxlength="6" style="text-transform: uppercase;">
+        <button class="join-button" onclick="joinGame()">Rejoindre</button>
+    </div>
+
+    <div class="game-modes">
+        <div class="mode-card">
+            <h2>Mode Équipes</h2>
+            <p>Formez des équipes de 3 joueurs et affrontez-vous avec un système de bonus/malus !</p>
+        </div>
+        <div class="mode-card">
+            <h2>Mode FFA</h2>
+            <p>Free-for-all sur un thème spécifique, répondez à tour de rôle !</p>
+        </div>
+        <div class="mode-card">
+            <h2>Mode Grille</h2>
+            <p>4 joueurs s'affrontent sur une grille personnalisée avec des questions cachées !</p>
+        </div>
+    </div>
+
+    <script>
+        function joinGame() {
+            const code = document.getElementById('gameCode').value.toUpperCase();
+            if (code.length === 6) {
+                window.location.href = `/games/${code}/join`;
+            } else {
+                alert('Veuillez entrer un code de partie valide (6 caractères)');
+            }
+        }
+
+        // Permettre l'utilisation de la touche Entrée
+        document.getElementById('gameCode').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                joinGame();
+            }
+        });
+    </script>
+</body>
+</html>
