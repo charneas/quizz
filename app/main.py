@@ -44,6 +44,11 @@ async def startup_logging():
         logger.info("Initialisation de la base de données...")
         init_db()
         logger.info("Base de données initialisée avec succès")
+    except Exception as e:
+        # Journalise l'erreur mais ne bloque pas le démarrage complet de l'application
+        from .logger import log_error
+        log_error(e, "Erreur lors de l'initialisation de la base de données au démarrage")
+        logger.error(f"Erreur initialisation base de données: {e}")
 
 # Include routers
 app.include_router(questions.router)
@@ -81,7 +86,7 @@ async def startup_event():
 # CORS middleware configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://127.0.0.1", "http://127.0.0.1:8000", "http://127.0.0.1:8001"],
+    allow_origins=["http://127.0.0.1", "http://127.0.0.1:8000", "http://127.0.0.1:8001", "http://51.159.55.57:8001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -138,14 +143,26 @@ async def create_game(mode: str, admin: str = Depends(verify_admin)):
 
 @app.get("/games/{code}/join")
 async def join_game(request: Request, code: str):
-    game = next((g for g in active_games.values() if g["code"] == code), None)
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-    
-    return templates.TemplateResponse(f"game_{game['mode']}.html", {
-        "request": request,
-        "game_code": code
-    })
+    from sqlmodel import Session, select
+    with Session(engine) as session:
+        game = session.exec(select(Game).where(Game.code == code)).first()
+        if not game:
+            raise HTTPException(status_code=404, detail="Game not found")
+        
+        # Si c'est une requête JSON (depuis l'API), retourner JSON
+        if request.headers.get('accept') == 'application/json':
+            return {
+                "id": game.id,
+                "code": game.code,
+                "mode": game.mode,
+                "state": game.state
+            }
+        
+        # Sinon, retourner le template HTML
+        return templates.TemplateResponse(f"game_{game.mode}.html", {
+            "request": request,
+            "game_code": code
+        })
 
 # WebSocket connection manager
 class ConnectionManager:

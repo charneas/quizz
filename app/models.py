@@ -1,6 +1,11 @@
 from typing import Optional, List
 from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
+from pydantic import BaseModel
+
+# Modèles Pydantic pour les requêtes/réponses
+class GameCreateRequest(BaseModel):
+    mode: str
 
 class Player(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -45,6 +50,8 @@ class Game(SQLModel, table=True):
     mode: str
     code: str = Field(unique=True)
     state: str = "waiting"  # waiting, running, paused, finished
+    current_question_id: Optional[int] = None  # Track which question is currently being displayed
+    current_answer: Optional[str] = None  # Store the answer to show
     created_at: datetime = Field(default_factory=datetime.utcnow)
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None

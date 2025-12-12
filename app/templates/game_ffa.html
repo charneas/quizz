@@ -23,9 +23,6 @@
             margin-bottom: 20px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
         }
-        .theme-selection {
-            margin-bottom: 20px;
-        }
         .player-list {
             list-style: none;
             padding: 0;
@@ -51,9 +48,14 @@
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
+            margin: 5px;
         }
         button:hover {
             background-color: #1557b0;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
         }
         .question-panel {
             display: none;
@@ -69,6 +71,15 @@
             margin: 10px 0;
             border: 1px solid #ddd;
             border-radius: 5px;
+            box-sizing: border-box;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -76,26 +87,19 @@
     <h1>Mode Free-For-All</h1>
     
     <div class="game-setup">
-        <div class="theme-selection">
-            <h2>Sélection du thème</h2>
-            <select id="theme">
-                <option value="general">Culture Générale</option>
-                <option value="history">Histoire</option>
-                <option value="science">Sciences</option>
-                <option value="sport">Sport</option>
-                <option value="cinema">Cinéma</option>
-            </select>
-        </div>
-
-        <h2>Joueurs</h2>
-        <input type="text" id="playerName" placeholder="Nom du joueur">
-        <button onclick="addPlayer()">Ajouter un joueur</button>
+        <h2>Entrée de la partie</h2>
+        <input type="text" id="gameCode" placeholder="Code de la partie">
+        <button onclick="joinGame()">Rejoindre</button>
+        
+        <h2 style="margin-top: 30px;">Joueurs</h2>
+        <input type="text" id="playerName" placeholder="Nom du joueur" disabled>
+        <button id="addPlayerBtn" onclick="addPlayer()" disabled>Ajouter un joueur</button>
         <ul class="player-list" id="playersList">
             <!-- Liste des joueurs -->
         </ul>
 
         <div class="game-controls">
-            <button onclick="startGame()">Commencer la partie</button>
+            <!-- Le bouton "Commencer la partie" est géré par l'admin -->
         </div>
     </div>
 
@@ -104,26 +108,189 @@
         <p id="questionText"></p>
         <input type="text" class="answer-input" id="answer" placeholder="Votre réponse">
         <button onclick="submitAnswer()">Valider</button>
+        <div id="answerDisplay" style="display: none; margin-top: 20px; padding: 15px; background: #e8f5e9; border-left: 4px solid #4caf50;">
+            <h4>Réponse:</h4>
+            <p id="answerText" style="font-size: 18px; font-weight: bold; color: #2e7d32;"></p>
+        </div>
     </div>
 
     <script>
         let players = [];
-        let currentPlayerIndex = -1;
-        let currentRound = 1;
-        const socket = new WebSocket(`ws://${window.location.hostname}:8001/ws/ffa`);
+        let gameId = null;
+        let gameCode = null;
+        let gameStarted = false;
+        const API_BASE_URL = "http://51.159.55.57:8001";
+        let gameStatusInterval = null;
+        let questionPollingInterval = null;
+        let lastQuestionId = null;
 
-        socket.onmessage = function(event) {
-            const data = JSON.parse(event.data);
-            handleServerMessage(data);
-        };
+        // Helper function to get auth header
+        function getAuthHeader() {
+            const credentials = 'admin:admin123';
+            return 'Basic ' + btoa(credentials);
+        }
+
+        // Helper function for authenticated fetch
+        function fetchWithAuth(url, options = {}) {
+            options.headers = options.headers || {};
+            options.headers['Authorization'] = getAuthHeader();
+            return fetch(url, options);
+        }
+
+        // Check game status every 2 seconds
+        function startGameStatusPolling() {
+            if (gameStatusInterval) {
+                clearInterval(gameStatusInterval);
+            }
+            
+            gameStatusInterval = setInterval(() => {
+                if (!gameId) return;
+                
+                fetch(`${API_BASE_URL}/games/${gameId}`)
+                    .then(response => response.json())
+                    .then(game => {
+                        if (game.state === 'running' && !gameStarted) {
+                            gameStarted = true;
+                            document.getElementById('questionPanel').style.display = 'block';
+                            startQuestionPolling();
+                        }
+                        
+                        // Check if admin sent a new question
+                        if (game.state === 'running' && game.current_question_id && game.current_question_id !== lastQuestionId) {
+                            lastQuestionId = game.current_question_id;
+                            // Hide answer when new question appears
+                            document.getElementById('answerDisplay').style.display = 'none';
+                            document.getElementById('answer').value = '';
+                            // Fetch the current question (not random)
+                            fetchWithAuth(`${API_BASE_URL}/games/${gameId}/question/current`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data && data.text) {
+                                        displayQuestion(data.text, players[0] ? players[0].name : 'Joueur');
+                                    }
+                                })
+                                .catch(error => console.error('Erreur lors de la récupération de la question:', error));
+                        }
+                        
+                        // Check if answer should be shown
+                        if (game.current_answer) {
+                            document.getElementById('answerDisplay').style.display = 'block';
+                            document.getElementById('answerText').textContent = game.current_answer;
+                        }
+                    })
+                    .catch(error => console.error('Erreur lors du polling:', error));
+            }, 2000);
+        }
+        
+        // Poll for new questions when admin sends them
+        function startQuestionPolling() {
+            if (questionPollingInterval) {
+                clearInterval(questionPollingInterval);
+            }
+            
+            questionPollingInterval = setInterval(() => {
+                if (!gameId || !gameStarted) return;
+                
+                fetch(`${API_BASE_URL}/games/${gameId}`)
+                    .then(response => response.json())
+                    .then(game => {
+                        // Check if admin sent a new question
+                        if (game.current_question_id && game.current_question_id !== lastQuestionId) {
+                            lastQuestionId = game.current_question_id;
+                            // Hide answer when new question appears
+                            document.getElementById('answerDisplay').style.display = 'none';
+                            document.getElementById('answer').value = '';
+                            // Fetch the current question (not random)
+                            fetchWithAuth(`${API_BASE_URL}/games/${gameId}/question/current`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data && data.text) {
+                                        displayQuestion(data.text, players[0] ? players[0].name : 'Joueur');
+                                    }
+                                })
+                                .catch(error => console.error('Erreur:', error));
+                        }
+                        
+                        // Check if answer should be shown
+                        if (game.current_answer) {
+                            document.getElementById('answerDisplay').style.display = 'block';
+                            document.getElementById('answerText').textContent = game.current_answer;
+                        }
+                    })
+                    .catch(error => console.error('Erreur lors du polling:', error));
+            }, 1000);
+        }
+
+        function joinGame() {
+            gameCode = document.getElementById('gameCode').value.trim().toUpperCase();
+            if (!gameCode) {
+                alert('Veuillez entrer un code de partie');
+                return;
+            }
+
+            // Join the game
+            fetch(`${API_BASE_URL}/games/${gameCode}/join`, {
+                method: 'GET',
+                headers: {
+                    'accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Partie non trouvée');
+                return response.json();
+            })
+            .then(data => {
+                gameId = data.id;
+                console.log('Partie rejointe:', data);
+                
+                // Enable player inputs
+                document.getElementById('playerName').disabled = false;
+                document.getElementById('addPlayerBtn').disabled = false;
+                document.getElementById('gameCode').disabled = true;
+                document.getElementById('gameCode').value = gameCode;
+                
+                // Start polling for game status
+                startGameStatusPolling();
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur: ' + error.message);
+            });
+        }
 
         function addPlayer() {
-            const playerName = document.getElementById('playerName').value;
-            if (playerName) {
-                players.push({name: playerName, score: 0});
+            const playerName = document.getElementById('playerName').value.trim();
+            if (!playerName) {
+                alert('Veuillez entrer un nom de joueur');
+                return;
+            }
+
+            if (!gameId) {
+                alert('Veuillez rejoindre une partie d\'abord');
+                return;
+            }
+
+            // Add player via API
+            fetchWithAuth(`${API_BASE_URL}/games/${gameId}/players`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({name: playerName})
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Joueur ajouté:', data);
+                players.push({id: data.id, name: data.name, score: data.score});
                 updatePlayersList();
                 document.getElementById('playerName').value = '';
-            }
+                
+                // Disable input and button after adding a player
+                document.getElementById('playerName').disabled = true;
+                document.getElementById('addPlayerBtn').disabled = true;
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                alert('Erreur lors de l\'ajout du joueur');
+            });
         }
 
         function updatePlayersList() {
@@ -133,25 +300,27 @@
             ).join('');
         }
 
-        function startGame() {
-            if (players.length < 2) {
-                alert('Il faut au moins 2 joueurs !');
+        function nextQuestion() {
+            if (!gameId) {
+                alert('Veuillez rejoindre une partie d\'abord');
                 return;
             }
-            const theme = document.getElementById('theme').value;
-            socket.send(JSON.stringify({
-                type: 'start_game',
-                theme: theme,
-                players: players
-            }));
-        }
 
-        function handleServerMessage(data) {
-            if (data.type === 'new_question') {
-                displayQuestion(data.question, data.player);
-            } else if (data.type === 'answer_result') {
-                handleAnswerResult(data);
-            }
+            // Get a random question from the game
+            fetchWithAuth(`${API_BASE_URL}/games/${gameId}/question/random`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.text) {
+                        lastQuestionId = data.id;
+                        displayQuestion(data.text, players[0] ? players[0].name : 'Joueur');
+                    } else {
+                        alert('Aucune question disponible');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur:', error);
+                    alert('Erreur lors de la récupération de la question');
+                });
         }
 
         function displayQuestion(question, playerName) {
@@ -159,19 +328,19 @@
             document.getElementById('currentPlayer').textContent = playerName;
             document.getElementById('questionText').textContent = question;
             document.getElementById('answer').value = '';
+            document.getElementById('answerDisplay').style.display = 'none';
         }
 
         function submitAnswer() {
-            const answer = document.getElementById('answer').value;
-            socket.send(JSON.stringify({
-                type: 'submit_answer',
-                answer: answer
-            }));
-        }
-
-        function handleAnswerResult(data) {
-            alert(data.correct ? 'Bonne réponse !' : 'Mauvaise réponse !');
-            updatePlayersList();
+            const answer = document.getElementById('answer').value.trim();
+            if (!answer) {
+                alert('Veuillez entrer une réponse');
+                return;
+            }
+            
+            // For now, just show a message
+            alert('Réponse envoyée: ' + answer);
+            document.getElementById('answer').value = '';
         }
     </script>
 </body>
